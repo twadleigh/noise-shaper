@@ -108,11 +108,12 @@ an init script (e.g. `~/.gradle/init.d/mirror.gradle`) that rewrites any reposit
 then at `https://<user>.github.io/<repo>/`. (On a normal browser the page uses the Web Audio
 engine; the native looping player is only used inside the Android app.)
 
-## Releases (GitHub, IzzyOnDroid)
+## Releases and distribution
 
-The release APK is signed with one key we control and published on GitHub Releases.
-[IzzyOnDroid](https://apt.izzysoft.de/fdroid/) (an F-Droid-compatible repo) can serve those same
-APKs, so a GitHub download and an IzzyOnDroid install have the same signature and update each other.
+The release APK is signed with one key we control and published on GitHub Releases. That is the
+only distribution channel: download the APK from the Releases page, or add this repo to
+[Obtainium](https://github.com/ImranR98/Obtainium) (Add App, paste the repo URL) to get installs and
+update notifications straight from the releases.
 
 ### GitHub Releases (signed APK)
 
@@ -144,16 +145,13 @@ git tag v1.0.1 && git push origin v1.0.1
 
 Local builds without the keystore environment variables produce an unsigned release APK.
 
-### IzzyOnDroid
+### App stores (not used)
 
-IzzyOnDroid doesn't build anything; it mirrors the signed APK from our GitHub release. It needs a
-public repo, an open source license (`LICENSE`, MIT), the APK attached to a release, and no
-trackers or non-free libraries. Store text and icon come from `fastlane/metadata/android/en-US/`.
-Once a first release exists, request inclusion with an "Request for packaging" issue in
-[IzzyOnDroid/repo](https://gitlab.com/IzzyOnDroid/repo) (see its README for the current process).
-
-Official F-Droid is also possible later, but F-Droid builds and signs its own APK, so its
-installs wouldn't be updatable from GitHub/IzzyOnDroid APKs.
+The repo already has an open source license (`LICENSE`, MIT) and F-Droid-style store text and icon in
+`fastlane/metadata/android/en-US/`, in case a store listing is wanted later. Note that official
+F-Droid builds and signs its own APK, so its installs could not be updated from the GitHub APKs.
+IzzyOnDroid (which would reuse the GitHub APKs) appeared to be closed to new submissions when last
+checked, so it is not planned.
 
 ## Known limitation
 
