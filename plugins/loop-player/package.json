@@ -1,0 +1,15 @@
+{
+  "name": "noise-loop-player",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor plugin: gapless native looping playback in a foreground service (keeps playing with the screen off)",
+  "files": ["android/src/main/", "android/build.gradle"],
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=7.0.0"
+  }
+}

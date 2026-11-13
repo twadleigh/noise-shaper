@@ -1,0 +1,26 @@
+{
+  "terminal.integrated.env.osx": {
+    "ANDROID_HOME": "/opt/homebrew/share/android-commandlinetools",
+    "ANDROID_SDK_ROOT": "/opt/homebrew/share/android-commandlinetools",
+    "PATH": "${env:PATH}:/opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin:/opt/homebrew/share/android-commandlinetools/platform-tools"
+  },
+  "terminal.integrated.env.linux": {
+    "ANDROID_HOME": "${env:HOME}/Android/Sdk",
+    "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
+    "PATH": "${env:PATH}:${env:HOME}/Android/Sdk/cmdline-tools/latest/bin:${env:HOME}/Android/Sdk/platform-tools"
+  },
+  "files.exclude": {
+    "**/.gradle": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "android/app/build": true,
+    "android/build": true,
+    "www": true
+  },
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "liveServer.settings.root": "/",
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  }
+}

@@ -1,0 +1,22 @@
+.DS_Store
+node_modules/
+www/
+
+# Android build output (the android/ project itself is committed)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+
+# Signing material
+*.jks
+*.keystore
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Local plugin build output
+plugins/*/android/build/
+plugins/*/android/.gradle/

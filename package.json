@@ -1,0 +1,25 @@
+{
+  "name": "noise",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Noise generator: single-file web app wrapped for Android with Capacitor",
+  "scripts": {
+    "prepare:web": "mkdir -p www && cp noise.html www/index.html",
+    "add:android": "cap add android",
+    "sync": "npm run prepare:web && cap sync android",
+    "build:debug": "npm run sync && cd android && ./gradlew assembleDebug",
+    "build:release": "npm run sync && cd android && ./gradlew bundleRelease",
+    "install:debug": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "noise-loop-player": "file:plugins/loop-player"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

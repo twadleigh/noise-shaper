@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Noise Shaper</title>
+<style>
+  :root {
+    --bg: #f3efe9;
+    --panel: #fffdf9;
+    --ink: #2a2420;
+    --muted: #7d7168;
+    --line: #e3dbd1;
+    --accent: #9a5b2e;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(154, 91, 46, 0.12);
+    --graph-bg: #fbf8f3;
+    --grid: #ece5db;
+    --grid-strong: #d8cec1;
+    --measured: #8b919c;
+    --track: #e6ded3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161311;
+      --panel: #201c19;
+      --ink: #ede6dd;
+      --muted: #a2958a;
+      --line: #36302b;
+      --accent: #d68c51;
+      --accent-ink: #1b1512;
+      --accent-soft: rgba(214, 140, 81, 0.16);
+      --graph-bg: #1a1714;
+      --grid: #2a2521;
+      --grid-strong: #3b342e;
+      --measured: #8e97a4;
+      --track: #3a332d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161311;
+    --panel: #201c19;
+    --ink: #ede6dd;
+    --muted: #a2958a;
+    --line: #36302b;
+    --accent: #d68c51;
+    --accent-ink: #1b1512;
+    --accent-soft: rgba(214, 140, 81, 0.16);
+    --graph-bg: #1a1714;
+    --grid: #2a2521;
+    --grid-strong: #3b342e;
+    --measured: #8e97a4;
+    --track: #3a332d;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); }
+  h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600;
+  }
+
+  .play {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent); color: var(--accent-ink);
+    border: 0; border-radius: 999px; padding: 10px 22px 10px 16px;
+    font: 600 15px/1 inherit; font-family: inherit; cursor: pointer;
+    transition: transform .08s ease, filter .15s ease;
+  }
+  .play:hover { filter: brightness(1.06); }
+  .play:active { transform: scale(0.97); }
+  .play svg { width: 18px; height: 18px; fill: currentColor; }
+
+  .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .volume { display: flex; align-items: center; gap: 8px; margin-right: 6px; color: var(--muted); }
+  .volume svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+  .volume input { width: 130px; }
+  .volume .val { width: 64px; color: var(--ink); }
+  @media (max-width: 560px) {
+    .actions { width: 100%; }
+    .volume { order: 3; flex: 1 1 100%; margin: 4px 0 0; }
+    .volume input { flex: 1; width: auto; }
+  }
+  .reset {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 999px; padding: 9px 16px 9px 12px; font: 500 14px/1 inherit; font-family: inherit; cursor: pointer;
+  }
+  .reset:hover { border-color: var(--grid-strong); background: var(--accent-soft); }
+  .reset svg { width: 16px; height: 16px; fill: currentColor; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px;
+  }
+  .graph-card { padding: 12px 12px 10px; margin-bottom: 16px; }
+  .graph-head {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding: 2px 4px 8px; flex-wrap: wrap;
+  }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; }
+  .legend .toggle { font-size: 12px; }
+  .readout { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); min-height: 1em; }
+  .graph-wrap { position: relative; height: clamp(260px, 44vw, 440px); }
+  canvas#graph { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; border-radius: 8px; }
+  .hint { margin: 8px 4px 0; color: var(--muted); font-size: 12px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .row { display: grid; grid-template-columns: 88px minmax(0, 1fr) 76px; align-items: center; gap: 10px; margin: 10px 0; }
+  .row label { color: var(--muted); font-size: 13px; }
+  .val { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; white-space: nowrap; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; margin: 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--track); border-radius: 2px; }
+  input[type=range]::-moz-range-track { height: 4px; background: var(--track); border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); margin-top: -6px; border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--panel); box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type=range]:disabled { opacity: 0.4; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip, .seg button {
+    font: inherit; font-size: 12px; color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  }
+  .chip:hover, .seg button:hover { border-color: var(--grid-strong); }
+  .chip.on, .seg button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .chip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg button { padding: 4px 8px; border-radius: 6px; }
+  .subhead { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .subhead + .row { margin-top: 6px; }
+  .sublabel { font-size: 13px; font-weight: 600; }
+  .presets-card { margin-bottom: 16px; }
+  .presets-card .card-head { margin-bottom: 10px; gap: 12px; flex-wrap: wrap; }
+  .presets-card .chips { margin-top: 0; }
+  .aside { font-size: 12px; color: var(--muted); }
+  .io { gap: 6px; }
+  .save { display: flex; gap: 8px; margin-bottom: 10px; max-width: 420px; }
+  .save input {
+    flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--ink); background: var(--graph-bg);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px;
+  }
+  .save input:focus { outline: none; border-color: var(--accent); }
+  .chip.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .chip.saved { display: inline-flex; align-items: center; gap: 2px; padding: 0 4px 0 0; cursor: default; }
+  .chip.saved button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .chip.saved .name { padding: 5px 4px 5px 11px; }
+  .chip.saved .x {
+    display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border-radius: 50%;
+    color: var(--muted); font-size: 15px; line-height: 1;
+  }
+  .chip.saved .x:hover { background: var(--line); color: var(--ink); }
+  .status { margin: 8px 0 0; font-size: 12px; color: var(--muted); min-height: 1.2em; }
+  .status button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0 0 0 6px; cursor: pointer; text-decoration: underline; }
+  .empty { margin: 0; font-size: 12px; color: var(--muted); }
+  .pts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 8px; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .pts span { background: var(--accent-soft); border-radius: 5px; padding: 2px 6px; }
+  .pts span.sel { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .divider { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+
+  select {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; width: 100%;
+  }
+
+  .engine { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .engine.warn { color: #c0563a; }
+  .meter { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+  .meter > div { height: 100%; width: 0; background: var(--accent); transition: width .08s linear; }
+
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .card-head h2 { margin: 0; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Noise Shaper</h1>
+      <p>Gaussian noise, filtered to any curve you draw.</p>
+    </div>
+    <div class="actions">
+    <div class="volume" title="Volume">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9zM16 8.5a5 5 0 0 1 0 7l-1.4-1.4a3 3 0 0 0 0-4.2zM18.4 6a8.5 8.5 0 0 1 0 12L17 16.6a6.5 6.5 0 0 0 0-9.2z"/></svg>
+      <input type="range" id="vol" min="-60" max="0" step="0.5" aria-label="Volume">
+      <span class="val" id="volVal"></span>
+    </div>
+    <button id="reset" class="reset" title="Restore default shaping (keeps volume)">
+      <svg viewBox="0 0 24 24"><path d="M12 5a7 7 0 1 1-6.6 4.7l1.9.6A5 5 0 1 0 12 7v3L7.5 6 12 2z"/></svg>
+      Reset
+    </button>
+    <button id="play" class="play" aria-pressed="false">
+      <svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4.5v15l13-7.5z"/></svg>
+      <span id="playLabel">Play</span>
+    </button>
+    </div>
+  </header>
+
+  <section class="card graph-card">
+    <div class="graph-head">
+      <div class="legend">
+        <span><i style="border-color: var(--accent)"></i>Target curve</span>
+        <label class="toggle" title="Analyzes the output continuously; uses more battery"><input type="checkbox" id="liveSpec"><i style="border-color: var(--measured)"></i>Live spectrum</label>
+        <span><i style="border-color: var(--muted); border-top-style: dashed"></i>Base slope</span>
+        <span><i style="border-color: var(--ink); opacity: .5"></i>Spline offset</span>
+      </div>
+      <div class="readout" id="readout"></div>
+    </div>
+    <div class="graph-wrap"><canvas id="graph"></canvas></div>
+    <p class="hint">Drag spline points to bend the curve · double-click empty space to add a point, double-click a point to remove it · drag LC / HC to move the cuts. 0 dB = level at 1 kHz.</p>
+  </section>
+
+  <section class="card presets-card">
+    <div class="card-head">
+      <h2>Soundscapes</h2>
+      <span class="aside">Steady-state spectral approximations</span>
+    </div>
+    <div class="chips" id="scenes"></div>
+    <hr class="divider">
+    <div class="card-head">
+      <h2>My shapes</h2>
+      <div class="chips io">
+        <button class="chip" id="exportShapes" title="Download saved shapes as a JSON file">Export</button>
+        <label class="chip" title="Load shapes from a JSON file">Import<input type="file" id="importShapes" accept=".json,application/json" hidden></label>
+      </div>
+    </div>
+    <form class="save" id="saveForm">
+      <input type="text" id="shapeName" placeholder="Name the current shape" maxlength="40" autocomplete="off">
+      <button class="chip primary" type="submit">Save</button>
+    </form>
+    <div class="chips" id="saved"></div>
+    <p class="empty" id="savedEmpty">No saved shapes yet. Shape the curve, give it a name, and save it here.</p>
+    <p class="status" id="savedStatus" aria-live="polite"></p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Color</h2>
+      <div class="row">
+        <label for="slope">Slope</label>
+        <input type="range" id="slope" min="-12" max="6" step="0.1">
+        <span class="val" id="slopeVal"></span>
+      </div>
+      <div class="chips" id="presets"></div>
+      <hr class="divider">
+      <div class="subhead">
+        <span class="sublabel">Spline</span>
+        <button class="chip" id="flatten">Flatten</button>
+      </div>
+      <div class="pts" id="splineInfo"></div>
+    </section>
+
+    <section class="card">
+      <h2>Band limits</h2>
+      <div class="subhead"><span class="sublabel">Low cut <span style="color:var(--muted);font-weight:400;font-size:12px">dB/oct</span></span><div class="seg" id="hpOrder"></div></div>
+      <div class="row">
+        <label for="hpF">Frequency</label>
+        <input type="range" id="hpF" min="0" max="1000">
+        <span class="val" id="hpFVal"></span>
+      </div>
+      <hr class="divider">
+      <div class="subhead">
+        <label class="toggle"><input type="checkbox" id="lpOn"><span class="sublabel" style="color:var(--ink)">High cut <span style="color:var(--muted);font-weight:400;font-size:12px">dB/oct</span></span></label>
+        <div class="seg" id="lpOrder"></div>
+      </div>
+      <div class="row">
+        <label for="lpF">Frequency</label>
+        <input type="range" id="lpF" min="0" max="1000">
+        <span class="val" id="lpFVal"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Output</h2>
+      <div class="row">
+        <label for="width">Stereo</label>
+        <input type="range" id="width" min="0" max="1" step="0.01">
+        <span class="val" id="widthVal"></span>
+      </div>
+      <div class="row">
+        <label for="sleep">Sleep timer</label>
+        <select id="sleep">
+          <option value="0">Off</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">1 hour</option>
+          <option value="120">2 hours</option>
+          <option value="480">8 hours</option>
+        </select>
+        <span class="val" id="sleepVal"></span>
+      </div>
+      <div class="row">
+        <label>Level</label>
+        <div class="meter"><div id="meterBar"></div></div>
+        <span class="val" id="meterVal">—</span>
+      </div>
+      <div class="engine" id="engine">Engine starts with Play.</div>
+    </section>
+  </div>
+
+  <p class="note">
+    White Gaussian noise (ziggurat method, fresh every sample — nothing ever loops) is filtered by a 16,383-tap
+    linear-phase FIR built from the curve, applied with FFT convolution. The result is exactly stationary filtered noise
+    with no frames or seams in the signal. Output is normalized to a constant RMS level, and curve changes take effect
+    within about a second through a level-matched crossfade.
+  </p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Audio worklet: white Gaussian noise -> FFT convolution with a linear-phase FIR built from the curve.
+// ---------------------------------------------------------------------------
+const WORKLET_SRC = `
+// White Gaussian noise shaped by a fixed linear-phase FIR filter, applied with FFT overlap-add.
+// The output is exactly stationary filtered noise: no frames, windows or seams in the signal itself.
+// Both channels share one complex FFT: left noise rides in the real part, right in the imaginary part.
+// The forward FFT is decimation-in-frequency (natural in, bit-reversed out) and the inverse is
+// decimation-in-time (bit-reversed in, natural out), so no permutation is ever needed; the filter
+// arrives already in bit-reversed order. Butterfly stages are fused in pairs to halve memory passes.
+const rotl = (x, k) => (x << k) | (x >>> (32 - k));
+
+// Ziggurat tables for standard normal deviates (Marsaglia & Tsang 2000, 128 layers).
+const KN = new Float64Array(128), WN = new Float64Array(128), FN = new Float64Array(128);
+const ZIG_R = 3.442619855899;
+(() => {
+  const m1 = 2147483648, vn = 9.91256303526217e-3;
+  let dn = ZIG_R, tn = dn;
+  const q = vn / Math.exp(-0.5 * dn * dn);
+  KN[0] = (dn / q) * m1; KN[1] = 0;
+  WN[0] = q / m1; WN[127] = dn / m1;
+  FN[0] = 1; FN[127] = Math.exp(-0.5 * dn * dn);
+  for (let i = 126; i >= 1; i--) {
+    dn = Math.sqrt(-2 * Math.log(vn / dn + Math.exp(-0.5 * dn * dn)));
+    KN[i + 1] = (dn / tn) * m1; tn = dn;
+    FN[i] = Math.exp(-0.5 * dn * dn); WN[i] = dn / m1;
+  }
+})();
+
+// Twiddles for a fused pass over blocks of size S: for j < S/4, w1 = exp(i*sign*2*pi*j/S) and w2 = w1^2,
+// interleaved as [re1, im1, re2, im2].
+function twiddles(S, sign) {
+  const q = S >> 2, t = new Float64Array(4 * q);
+  for (let j = 0; j < q; j++) {
+    const a = 2 * Math.PI * j / S;
+    t[4 * j] = Math.cos(a); t[4 * j + 1] = sign * Math.sin(a);
+    t[4 * j + 2] = Math.cos(2 * a); t[4 * j + 3] = sign * Math.sin(2 * a);
+  }
+  return t;
+}
+
+class ShapedNoise extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    const o = options.processorOptions;
+    const N = this.N = o.N;          // FFT size (power of two, odd exponent: 2^15)
+    const B = this.B = N >> 1;       // new samples per block (filter length must be <= N - B + 1)
+    this.width = o.width;
+
+    // First forward stage is folded into the noise fill: twiddle exp(-i*2*pi*n/N) for n < B.
+    this.c0 = new Float64Array(B); this.s0 = new Float64Array(B);
+    for (let n = 0; n < B; n++) { this.c0[n] = Math.cos(2 * Math.PI * n / N); this.s0[n] = Math.sin(2 * Math.PI * n / N); }
+    // Remaining forward stages N/2 .. 2 as fused pairs; inverse stage 2 alone, then fused pairs 8 .. N.
+    this.fwd = []; for (let S = N >> 1; S >= 4; S >>= 2) this.fwd.push([S, twiddles(S, -1)]);
+    this.inv = []; for (let S = 8; S <= N; S <<= 2) this.inv.push([S, twiddles(S, 1)]);
+
+    // xoshiro128** state
+    const s = o.seed;
+    this.r0 = s[0] | 0; this.r1 = s[1] | 0; this.r2 = s[2] | 0; this.r3 = s[3] | 0;
+    if (!(this.r0 | this.r1 | this.r2 | this.r3)) this.r0 = 1;
+
+    this.xr = new Float64Array(N); this.xi = new Float64Array(N);   // noise block -> its spectrum
+    this.ar = new Float64Array(N); this.ai = new Float64Array(N);   // filter A output
+    this.br = new Float64Array(N); this.bi = new Float64Array(N);   // filter B output (only while crossfading)
+    this.hA = o.filter;                                             // {re, im}: bit-reversed spectrum of the taps, scaled by 1/N
+    this.hB = null;
+    this.pending = null;
+    this.rho = 1;
+    this.tailA = [new Float64Array(B), new Float64Array(B)];
+    this.tailB = [new Float64Array(B), new Float64Array(B)];
+    this.outL = new Float32Array(B); this.outR = new Float32Array(B);
+
+    // Filter changes: phase 0 = steady; 1 = new filter B warming up (its tail fills); 2 = crossfade A -> B.
+    this.phase = 0;
+    this.FILL = 16;
+    this.startBlock();
+    this.finishBlock();     // fill the convolution tail
+    this.finishBlock();     // first full block of output
+    this.pos = 0;
+
+    this.port.onmessage = (e) => {
+      const d = e.data;
+      if (d.filter) this.pending = d.filter;
+      if (d.width !== undefined) this.width = d.width;
+    };
+  }
+
+  next32() {
+    const r = Math.imul(rotl(Math.imul(this.r1, 5), 7), 9);
+    const t = this.r1 << 9;
+    this.r2 ^= this.r0; this.r3 ^= this.r1; this.r1 ^= this.r2; this.r0 ^= this.r3;
+    this.r2 ^= t; this.r3 = rotl(this.r3, 11);
+    return r;   // signed 32-bit
+  }
+  uni() { return ((this.next32() >>> 0) + 1) / 4294967296; }   // (0, 1]
+
+  // Standard normal via ziggurat; the layer index comes from separate bits (Doornik 2005).
+  gauss() {
+    for (;;) {
+      const hz = this.next32(), iz = this.next32() & 127;
+      if (Math.abs(hz) < KN[iz]) return hz * WN[iz];
+      if (iz === 0) {
+        let x, y;
+        do { x = -Math.log(this.uni()) / ZIG_R; y = -Math.log(this.uni()); } while (y + y < x * x);
+        return hz > 0 ? ZIG_R + x : -ZIG_R - x;
+      }
+      const x = hz * WN[iz];
+      if (FN[iz] + this.uni() * (FN[iz - 1] - FN[iz]) < Math.exp(-0.5 * x * x)) return x;
+    }
+  }
+
+  startBlock() {
+    if (this.phase === 0 && this.pending) {
+      const a = this.hA, b = this.pending;
+      this.pending = null;
+      this.hB = b;
+      // Correlation of the two filters' outputs (Parseval), used to hold the level constant while crossfading.
+      let ab = 0, aa = 0, bb = 0;
+      for (let k = 0; k < this.N; k++) {
+        ab += a.re[k] * b.re[k] + a.im[k] * b.im[k];
+        aa += a.re[k] * a.re[k] + a.im[k] * a.im[k];
+        bb += b.re[k] * b.re[k] + b.im[k] * b.im[k];
+      }
+      this.rho = aa > 0 && bb > 0 ? ab / Math.sqrt(aa * bb) : 0;
+      this.tailB[0].fill(0); this.tailB[1].fill(0);
+      this.phase = 1;
+    }
+    this.dual = this.phase !== 0;
+    const inv = 1 + this.inv.length;
+    this.total = this.FILL + this.fwd.length + 1 + inv * (this.dual ? 2 : 1);
+    this.step = 0;
+  }
+
+  // New noise in the first half, zeros in the second, with the first DIF stage (size N) applied:
+  // the pair (x[n], 0) becomes (x[n], x[n] * exp(-i*2*pi*n/N)).
+  fillSlice(i) {
+    const { B, xr, xi, c0, s0 } = this;
+    const len = B / this.FILL, end = (i + 1) * len;
+    for (let n = i * len; n < end; n++) {
+      const l = this.gauss(), r = this.gauss(), c = c0[n], s = s0[n];
+      xr[n] = l; xi[n] = r;
+      xr[n + B] = l * c + r * s;
+      xi[n + B] = r * c - l * s;
+    }
+  }
+
+  // Two decimation-in-frequency stages (block sizes S and S/2) in one pass.
+  difPass(re, im, S, tw) {
+    const N = this.N, h = S >> 1, q = S >> 2;
+    for (let i = 0; i < N; i += S) {
+      for (let j = 0; j < q; j++) {
+        const a = i + j, b = a + q, c = a + h, d = c + q, t = 4 * j;
+        const c1 = tw[t], s1 = tw[t + 1], c2 = tw[t + 2], s2 = tw[t + 3];
+        const ar = re[a], ai = im[a], br = re[b], bi = im[b], cr = re[c], ci = im[c], dr = re[d], di = im[d];
+        const y0r = ar + cr, y0i = ai + ci, y1r = br + dr, y1i = bi + di;
+        const ur = ar - cr, ui = ai - ci, vr = br - dr, vi = bi - di;
+        const y2r = ur * c1 - ui * s1, y2i = ur * s1 + ui * c1;
+        const wr = vr * c1 - vi * s1, wi = vr * s1 + vi * c1;
+        const y3r = wi, y3i = -wr;                    // times exp(-i*pi/2) = -i
+        re[a] = y0r + y1r; im[a] = y0i + y1i;
+        const pr = y0r - y1r, pi = y0i - y1i;
+        re[b] = pr * c2 - pi * s2; im[b] = pr * s2 + pi * c2;
+        re[c] = y2r + y3r; im[c] = y2i + y3i;
+        const qr = y2r - y3r, qi = y2i - y3i;
+        re[d] = qr * c2 - qi * s2; im[d] = qr * s2 + qi * c2;
+      }
+    }
+  }
+
+  // Inverse: the size-2 decimation-in-time stage (twiddle 1).
+  ditPass2(re, im) {
+    for (let a = 0; a < this.N; a += 2) {
+      const b = a + 1, xr = re[b], xi = im[b];
+      re[b] = re[a] - xr; im[b] = im[a] - xi;
+      re[a] += xr; im[a] += xi;
+    }
+  }
+
+  // Two decimation-in-time stages (block sizes S/2 then S) in one pass.
+  ditPass(re, im, S, tw) {
+    const N = this.N, h = S >> 1, q = S >> 2;
+    for (let i = 0; i < N; i += S) {
+      for (let j = 0; j < q; j++) {
+        const a = i + j, b = a + q, c = a + h, d = c + q, t = 4 * j;
+        const c1 = tw[t], s1 = tw[t + 1], c2 = tw[t + 2], s2 = tw[t + 3];
+        // stage S/2: (a, b) and (c, d) with w2
+        const br0 = re[b] * c2 - im[b] * s2, bi0 = re[b] * s2 + im[b] * c2;
+        const dr0 = re[d] * c2 - im[d] * s2, di0 = re[d] * s2 + im[d] * c2;
+        const ar1 = re[a] + br0, ai1 = im[a] + bi0, br1 = re[a] - br0, bi1 = im[a] - bi0;
+        const cr1 = re[c] + dr0, ci1 = im[c] + di0, dr1 = re[c] - dr0, di1 = im[c] - di0;
+        // stage S: (a, c) with w1 and (b, d) with w1 * exp(i*pi/2) = w1 * i
+        const tr = cr1 * c1 - ci1 * s1, ti = cr1 * s1 + ci1 * c1;
+        const ur = dr1 * c1 - di1 * s1, ui = dr1 * s1 + di1 * c1;
+        const vr = -ui, vi = ur;
+        re[a] = ar1 + tr; im[a] = ai1 + ti; re[c] = ar1 - tr; im[c] = ai1 - ti;
+        re[b] = br1 + vr; im[b] = bi1 + vi; re[d] = br1 - vr; im[d] = bi1 - vi;
+      }
+    }
+  }
+
+  // Multiply the (bit-reversed) noise spectrum by the (bit-reversed) filter(s).
+  multiply() {
+    const { N, xr, xi, ar, ai, br, bi } = this;
+    const hr = this.hA.re, hi = this.hA.im;
+    for (let k = 0; k < N; k++) {
+      const x = xr[k], y = xi[k];
+      ar[k] = x * hr[k] - y * hi[k];
+      ai[k] = x * hi[k] + y * hr[k];
+    }
+    if (this.dual) {
+      const gr = this.hB.re, gi = this.hB.im;
+      for (let k = 0; k < N; k++) {
+        const x = xr[k], y = xi[k];
+        br[k] = x * gr[k] - y * gi[k];
+        bi[k] = x * gi[k] + y * gr[k];
+      }
+    }
+  }
+
+  inverseStep(re, im, s) {
+    if (s === 0) this.ditPass2(re, im);
+    else { const [S, tw] = this.inv[s - 1]; this.ditPass(re, im, S, tw); }
+  }
+
+  work() {
+    const s = this.step, F = this.FILL, nf = this.fwd.length, ni = 1 + this.inv.length;
+    if (s < F) this.fillSlice(s);
+    else if (s < F + nf) { const [S, tw] = this.fwd[s - F]; this.difPass(this.xr, this.xi, S, tw); }
+    else if (s === F + nf) this.multiply();
+    else if (s < F + nf + 1 + ni) this.inverseStep(this.ar, this.ai, s - F - nf - 1);
+    else this.inverseStep(this.br, this.bi, s - F - nf - 1 - ni);
+    this.step++;
+  }
+
+  finishBlock() {
+    while (this.step < this.total) this.work();
+    const { B, ar, ai, br, bi, outL, outR } = this;
+    const [aL, aR] = this.tailA, [bL, bR] = this.tailB;
+    const w = this.width, g = 1 / Math.sqrt(1 + w * w);
+    if (this.phase === 2) {
+      const rho = this.rho;
+      for (let n = 0; n < B; n++) {
+        const f = (n + 0.5) / B, u = 1 - f;
+        const c = 1 / Math.sqrt(u * u + f * f + 2 * u * f * rho);
+        const l = (u * (ar[n] + aL[n]) + f * (br[n] + bL[n])) * c;
+        const r = (u * (ai[n] + aR[n]) + f * (bi[n] + bR[n])) * c;
+        outL[n] = (l + w * r) * g;
+        outR[n] = (l - w * r) * g;
+      }
+    } else {
+      for (let n = 0; n < B; n++) {
+        const l = ar[n] + aL[n], r = ai[n] + aR[n];
+        outL[n] = (l + w * r) * g;
+        outR[n] = (l - w * r) * g;
+      }
+    }
+    for (let n = 0; n < B; n++) { aL[n] = ar[n + B]; aR[n] = ai[n + B]; }
+    if (this.dual) for (let n = 0; n < B; n++) { bL[n] = br[n + B]; bR[n] = bi[n + B]; }
+
+    if (this.phase === 1) this.phase = 2;
+    else if (this.phase === 2) {
+      this.hA = this.hB; this.hB = null;
+      const t = this.tailA; this.tailA = this.tailB; this.tailB = t;
+      this.phase = 0;
+    }
+    this.startBlock();
+  }
+
+  process(inputs, outputs) {
+    const out = outputs[0], L = out[0], R = out[1];
+    if (this.step < this.total) this.work();
+    for (let i = 0; i < L.length; i++) {
+      if (this.pos >= this.B) { this.finishBlock(); this.pos = 0; }
+      L[i] = this.outL[this.pos];
+      if (R) R[i] = this.outR[this.pos];
+      this.pos++;
+    }
+    return true;
+  }
+}
+registerProcessor('shaped-noise', ShapedNoise);
+`;
+
+// ---------------------------------------------------------------------------
+// Spectrum model
+// ---------------------------------------------------------------------------
+const NF = 32768;              // convolution FFT size; blocks of NF/2 new samples (~0.34 s at 48 kHz)
+const TAPS = NF / 2 - 1;       // odd-length symmetric FIR, ~1.5 Hz grid before windowing
+const RMS = 0.1;               // output level per channel before the volume control (-20 dBFS)
+const FMIN = 10, FMAX = 22000, DBMIN = -60, DBMAX = 50;
+// Grey: rough inverse of A-weighting, captured as a few spline points on a flat base.
+const GREY = [[25, 26], [80, 15], [250, 6], [1000, 0], [3200, -2], [12000, 4]];
+const flatSpline = () => [[30, 0], [150, 0], [700, 0], [3000, 0], [12000, 0]].map(([f, g]) => ({ f, g }));
+const PRESETS = [
+  { name: 'White', slope: 0, color: '#e6e1d9' },
+  { name: 'Pink', slope: -3, color: '#e8a2a8' },
+  { name: 'Brown', slope: -6, color: '#9a5b2e' },
+  { name: 'Deep brown', slope: -9, color: '#5c3519' },
+  { name: 'Blue', slope: 3, color: '#5b8fd6' },
+  { name: 'Violet', slope: 6, color: '#8e62c9' },
+  { name: 'Grey', slope: 0, color: '#9a9a9a', points: GREY },
+];
+
+// Soundscapes: each is a static spectrum (tilt + spline + cuts) that evokes the source.
+const pts = (a) => a.map(([f, g]) => ({ f, g }));
+const SCENES = [
+  { name: 'Waterfall', slope: -2.5, hp: { f: 30, order: 2 }, lp: { f: 12000, order: 1, on: true },
+    points: [[60, -4], [300, 4], [1200, 2], [4000, 0], [10000, -3]] },
+  { name: 'Rainstorm', slope: -3, hp: { f: 25, order: 2 }, lp: { f: 16000, order: 1, on: true },
+    points: [[50, 4], [200, 0], [1500, 3], [5000, 5], [12000, 0]] },
+  { name: 'Rain on roof', slope: -4, hp: { f: 40, order: 2 }, lp: { f: 3500, order: 2, on: true },
+    points: [[80, -2], [400, 2], [1200, 5], [3000, 2], [8000, 0]] },
+  { name: 'Wind', slope: -6, hp: { f: 60, order: 2 }, lp: { f: 2500, order: 2, on: true },
+    points: [[100, -2], [350, 5], [900, 3], [2000, 0], [6000, 0]] },
+  { name: 'Airplane cabin', slope: -4.5, hp: { f: 30, order: 2 }, lp: { f: 4000, order: 1, on: true },
+    points: [[80, 2], [400, 5], [1500, 0], [4000, -3], [10000, -6]] },
+  { name: 'Spaceship', slope: -7, hp: { f: 20, order: 2 }, lp: { f: 800, order: 2, on: true },
+    points: [[40, 3], [70, 8], [150, 0], [450, 0], [2000, -5]] },
+];
+
+const DEFAULT_STATE = {
+  preset: 'Brown',
+  slope: -6,
+  hp: { f: 20, order: 2 },
+  lp: { f: 16000, order: 1, on: true },
+  points: flatSpline(),
+  volume: -14,
+  width: 1,
+};
+
+const STORE_KEY = 'noise-shaper-v1';
+let state = structuredClone(DEFAULT_STATE);
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+  if (saved && Array.isArray(saved.points) && saved.points.length >= 2) state = { ...state, ...saved };
+} catch (e) {}
+
+const tiltDb = (f) => state.slope * Math.log2(f / 1000);
+const hpDb = (f) => -10 * Math.log10(1 + Math.pow(state.hp.f / f, 2 * state.hp.order));
+const lpDb = (f) => state.lp.on ? -10 * Math.log10(1 + Math.pow(f / state.lp.f, 2 * state.lp.order)) : 0;
+const subsonicDb = (f) => -10 * Math.log10(1 + Math.pow(4 / f, 8));   // always-on 4 Hz guard
+// Monotone cubic (Fritsch–Carlson) through the control points in (log2 f, dB): smooth, never overshoots.
+let splineCache = null;
+function buildSpline() {
+  const p = state.points.slice().sort((a, b) => a.f - b.f);
+  const x = p.map((q) => Math.log2(q.f)), y = p.map((q) => q.g), n = p.length;
+  const d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++) d.push((y[i + 1] - y[i]) / (x[i + 1] - x[i]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) m[i] = d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (d[i] === 0) { m[i] = m[i + 1] = 0; continue; }
+    const a = m[i] / d[i], b = m[i + 1] / d[i], h = a * a + b * b;
+    if (h > 9) { const t = 3 / Math.sqrt(h); m[i] = t * a * d[i]; m[i + 1] = t * b * d[i]; }
+  }
+  return { x, y, m, n };
+}
+function splineDb(f) {
+  const { x, y, m, n } = splineCache || (splineCache = buildSpline());
+  const t = Math.log2(f);
+  if (t <= x[0]) return y[0];
+  if (t >= x[n - 1]) return y[n - 1];
+  let i = 0;
+  while (t > x[i + 1]) i++;
+  const h = x[i + 1] - x[i], u = (t - x[i]) / h, u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * y[i] + (u3 - 2 * u2 + u) * h * m[i] + (-2 * u3 + 3 * u2) * y[i + 1] + (u3 - u2) * h * m[i + 1];
+}
+function totalDb(f) {
+  return tiltDb(f) + splineDb(f) + hpDb(f) + lpDb(f) + subsonicDb(f);
+}
+function computeAmp(sr) {
+  const amp = new Float64Array(NF / 2 + 1);
+  for (let k = 1; k <= NF / 2; k++) amp[k] = Math.pow(10, Math.min(120, totalDb(k * sr / NF)) / 20);
+  return amp;
+}
+
+// In-place radix-2 complex FFT; sign -1 forward, +1 inverse (unscaled). Matches the worklet's convention.
+function fft(re, im, sign) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let size = 2; size <= n; size <<= 1) {
+    const half = size >> 1, step = sign * 2 * Math.PI / size;
+    for (let j = 0; j < half; j++) {
+      const wr = Math.cos(step * j), wi = Math.sin(step * j);
+      for (let i = j; i < n; i += size) {
+        const b = i + half;
+        const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
+        re[b] = re[i] - xr; im[b] = im[i] - xi;
+        re[i] += xr; im[i] += xi;
+      }
+    }
+  }
+}
+
+// Linear-phase FIR from the target magnitude: zero-phase impulse response, Hann-windowed to TAPS,
+// scaled so unit white noise comes out at RMS, then transformed (with the 1/N of the inverse FFT folded in).
+function designFilter(sr) {
+  const amp = computeAmp(sr);
+  const re = new Float64Array(NF), im = new Float64Array(NF);
+  for (let k = 0; k <= NF / 2; k++) { re[k] = amp[k]; if (k > 0 && k < NF / 2) re[NF - k] = amp[k]; }
+  fft(re, im, 1);
+  const c = (TAPS - 1) / 2, hr = new Float64Array(NF), hi = new Float64Array(NF);
+  let energy = 0;
+  for (let n = 0; n < TAPS; n++) {
+    const w = Math.sin(Math.PI * (n + 1) / (TAPS + 1)) ** 2;
+    hr[n] = re[(n - c + NF) % NF] * w;
+    energy += hr[n] * hr[n];
+  }
+  const scale = energy > 0 ? RMS / Math.sqrt(energy) : 0;
+  for (let n = 0; n < TAPS; n++) hr[n] *= scale;
+  fft(hr, hi, -1);
+  // The worklet multiplies in bit-reversed order (its forward FFT never un-permutes), so deliver it that way.
+  const re2 = new Float64Array(NF), im2 = new Float64Array(NF), bits = Math.log2(NF);
+  for (let k = 0; k < NF; k++) {
+    let r = 0;
+    for (let b = 0; b < bits; b++) r |= ((k >>> b) & 1) << (bits - 1 - b);
+    re2[r] = hr[k] / NF; im2[r] = hi[k] / NF;
+  }
+  return { re: re2, im: im2 };
+}
+
+// ---------------------------------------------------------------------------
+// Audio graph
+// ---------------------------------------------------------------------------
+let actx = null, noiseNode = null, master = null, specAn = null, meterAn = null;
+let specBuf = null, meterBuf = null, playing = false, stopToken = 0;
+const dbToGain = (db) => db <= -60 ? 0 : Math.pow(10, db / 20);
+
+// A page opened from disk (file://) has an opaque origin, and Chrome refuses to load a worklet
+// module from a blob: URL there. Try blob:, then data:, then run the same processor on the main
+// thread through ScriptProcessorNode so the page still works anywhere.
+const FORCE_LOADER = new URLSearchParams(location.search).get('loader');   // 'blob' | 'data' | 'script' (testing)
+let audioPath = '';
+
+async function createNoiseNode(ctx, processorOptions) {
+  if (ctx.audioWorklet && FORCE_LOADER !== 'script') {
+    const urls = [
+      ['blob', () => URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }))],
+      ['data', () => 'data:application/javascript;charset=utf-8,' + encodeURIComponent(WORKLET_SRC)],
+    ].filter(([name]) => !FORCE_LOADER || FORCE_LOADER === name);
+    for (const [name, makeUrl] of urls) {
+      try {
+        await ctx.audioWorklet.addModule(makeUrl());
+        audioPath = `AudioWorklet (${name})`;
+        return new AudioWorkletNode(ctx, 'shaped-noise', {
+          numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions,
+        });
+      } catch (e) {
+        console.warn(`Worklet via ${name}: URL failed:`, e.message);
+      }
+    }
+  }
+  return createScriptProcessorNoise(ctx, processorOptions);
+}
+
+function createScriptProcessorNoise(ctx, processorOptions) {
+  let Proc = null;
+  class AudioWorkletProcessor { constructor() { this.port = { onmessage: null }; } }
+  new Function('AudioWorkletProcessor', 'registerProcessor', WORKLET_SRC)(
+    AudioWorkletProcessor, (_, cls) => { Proc = cls; });
+  const proc = new Proc({ processorOptions });
+  // Largest buffer the API allows: the main thread can be late by up to ~0.3 s without a dropout.
+  const node = ctx.createScriptProcessor(16384, 1, 2);
+  node.onaudioprocess = (e) => {
+    const ob = e.outputBuffer;
+    proc.process([], [[ob.getChannelData(0), ob.getChannelData(1)]]);
+  };
+  node.port = { postMessage: (data) => proc.port.onmessage && proc.port.onmessage({ data }) };
+  audioPath = 'ScriptProcessor (fallback)';
+  return node;
+}
+
+// ---------------------------------------------------------------------------
+// Native engine (Android app only): the page renders one seamless, exactly periodic stereo loop with a
+// single huge inverse FFT and hands it to the LoopPlayer plugin, which loops it in a foreground service so
+// playback survives screen lock. Everything below is inert in a normal browser.
+// ---------------------------------------------------------------------------
+let LoopPlayer = null;
+try {
+  // Without a bundler the injected bridge exposes native plugins as Capacitor.Plugins.<Name> (no registerPlugin).
+  if (window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+    LoopPlayer = (Capacitor.Plugins && Capacitor.Plugins.LoopPlayer) || (Capacitor.registerPlugin && Capacitor.registerPlugin('LoopPlayer')) || null;
+  }
+} catch (e) {}
+const native = !!LoopPlayer;
+const NATIVE_RATE = 48000, NATIVE_N = 1 << 21;   // 2^21 frames = 43.7 s loop
+let nativeRaw = null, nativeSeed = null, nativeBusy = false, nativeAgain = false, nativeTimer = null;
+
+function sfc32(s) {
+  let [a, b, c, d] = s;
+  return () => {
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9); b = (c + (c << 3)) | 0; c = (c << 21) | (c >>> 11); d = (d + 1) | 0;
+    t = (t + d) | 0; c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+
+// In-place complex FFT of Float32Arrays using precomputed twiddles (cosT/sinT hold n/2 entries); sign +1 = inverse, unscaled.
+function fftBig(re, im, sign, cosT, sinT) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let size = 2; size <= n; size <<= 1) {
+    const half = size >> 1, stride = n / size;
+    for (let i = 0; i < n; i += size) {
+      for (let j = 0, t = 0; j < half; j++, t += stride) {
+        const wr = cosT[t], wi = sign * sinT[t];
+        const a = i + j, b = a + half;
+        const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - xr; im[b] = im[a] - xi;
+        re[a] += xr; im[a] += xi;
+      }
+    }
+  }
+}
+
+// Two independent noise channels with the curve's exact spectrum, periodic in NATIVE_N samples:
+// random Gaussian spectra for L and R packed into one complex spectrum (L in the real part of the result, R in the imaginary).
+function synthRaw(key) {
+  const N = NATIVE_N, H = N >> 1, sr = NATIVE_RATE;
+  const rng = sfc32(nativeSeed);
+  let spare = null;
+  const gauss = () => {
+    if (spare !== null) { const v = spare; spare = null; return v; }
+    const r = Math.sqrt(-2 * Math.log(1 - rng())), th = 2 * Math.PI * rng();
+    spare = r * Math.sin(th);
+    return r * Math.cos(th);
+  };
+  const re = new Float32Array(N), im = new Float32Array(N);
+  for (let k = 1; k < H; k++) {
+    const A = Math.pow(10, Math.min(120, totalDb(k * sr / N)) / 20);
+    const la = gauss() * A, lb = gauss() * A, ra = gauss() * A, rb = gauss() * A;
+    re[k] = la - rb;     im[k] = lb + ra;
+    re[N - k] = la + rb; im[N - k] = ra - lb;
+  }
+  { const A = Math.pow(10, Math.min(120, totalDb(sr / 2)) / 20); re[H] = gauss() * A; im[H] = gauss() * A; }
+  const cosT = new Float32Array(H), sinT = new Float32Array(H);
+  for (let i = 0; i < H; i++) { const a = 2 * Math.PI * i / N; cosT[i] = Math.cos(a); sinT[i] = Math.sin(a); }
+  fftBig(re, im, 1, cosT, sinT);
+  let sl = 0, sr2 = 0;
+  for (let i = 0; i < N; i++) { sl += re[i] * re[i]; sr2 += im[i] * im[i]; }
+  const gl = RMS / Math.sqrt(sl / N), gr = RMS / Math.sqrt(sr2 / N);
+  for (let i = 0; i < N; i++) { re[i] *= gl; im[i] *= gr; }
+  return { key, re, im };
+}
+
+function bytesToB64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 30));   // let the UI paint before heavy work
+function engineNote(text) { $('engine').classList.remove('warn'); $('engine').textContent = text; }
+const NATIVE_ENGINE_NOTE = 'Engine: native looping player (keeps playing with the screen off).';
+const sleepRemaining = () => sleepTick ? Math.max(1, Math.round((sleepEnd - Date.now()) / 1000)) : (playing ? 0 : +sleepSel.value * 60);
+
+// One render + upload + play cycle for the current state. Returns false if a Stop arrived meanwhile.
+async function nativeCycle(crossfadeMs, token) {
+  const key = JSON.stringify(shapeOf(state));
+  if (!nativeRaw || nativeRaw.key !== key) {
+    engineNote('Rendering noise…');
+    await tick();
+    nativeRaw = null;                                   // free the old one before allocating the new one
+    nativeRaw = synthRaw(key);
+    if (token !== stopToken) { engineNote(NATIVE_ENGINE_NOTE); return false; }
+  }
+  engineNote('Sending to the native player…');
+  const { re, im } = nativeRaw, N = NATIVE_N, CH = 1 << 16;
+  const w = state.width, g = 1 / Math.sqrt(1 + w * w), buf = new Float32Array(CH * 2);
+  await LoopPlayer.begin({ frames: N, channels: 2, sampleRate: NATIVE_RATE });
+  for (let o = 0; o < N; o += CH) {
+    if (token !== stopToken) { engineNote(NATIVE_ENGINE_NOTE); return false; }
+    for (let i = 0; i < CH; i++) {
+      const l = re[o + i], r = im[o + i];
+      buf[2 * i] = (l + w * r) * g; buf[2 * i + 1] = (l - w * r) * g;
+    }
+    await LoopPlayer.append({ data: bytesToB64(new Uint8Array(buf.buffer)) });
+  }
+  if (token !== stopToken) { engineNote(NATIVE_ENGINE_NOTE); return false; }
+  await LoopPlayer.play({ gain: dbToGain(state.volume), sleepSeconds: sleepRemaining(), crossfadeMs });
+  engineNote(NATIVE_ENGINE_NOTE);
+  return true;
+}
+
+// Single-flight: changes that arrive during a cycle trigger one more cycle afterwards.
+async function nativeApply(crossfadeMs) {
+  if (nativeBusy) { nativeAgain = true; return true; }
+  nativeBusy = true;
+  let ok = true;
+  try {
+    do {
+      nativeAgain = false;
+      ok = await nativeCycle(crossfadeMs, stopToken);
+      crossfadeMs = 1500;
+    } while (ok && nativeAgain);
+  } finally { nativeBusy = false; }
+  return ok;
+}
+
+function scheduleNativeRefresh() {
+  if (!native || !playing) return;
+  clearTimeout(nativeTimer);
+  nativeTimer = setTimeout(() => nativeApply(1500).catch((e) => engineNote('Native player error: ' + e.message)), 500);
+}
+
+async function startNative() {
+  const token = ++stopToken;
+  if (!nativeSeed) { nativeSeed = new Uint32Array(4); crypto.getRandomValues(nativeSeed); }
+  $('play').disabled = true;
+  try {
+    while (nativeBusy) await tick();
+    if (!await nativeApply(0) || token !== stopToken) return;
+  } finally { $('play').disabled = false; }
+  playing = true;
+  updatePlayButton();
+  armSleep();
+}
+
+function stopNative(fadeSeconds) {
+  playing = false;
+  stopToken++;
+  clearTimeout(nativeTimer);
+  updatePlayButton();
+  clearSleep();
+  LoopPlayer.stop({ fadeMs: Math.round(fadeSeconds * 1000) }).catch(() => {});
+}
+
+async function startAudio() {
+  if (native) return startNative();
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
+    const seed = new Uint32Array(4);
+    crypto.getRandomValues(seed);
+    noiseNode = await createNoiseNode(actx, {
+      N: NF, seed: Array.from(seed), filter: designFilter(actx.sampleRate), width: state.width,
+    });
+    showEngine();
+    specAn = actx.createAnalyser();
+    specAn.fftSize = 16384; specAn.smoothingTimeConstant = 0.88;
+    specAn.minDecibels = -180; specAn.maxDecibels = 0;
+    master = actx.createGain(); master.gain.value = 0;
+    meterAn = actx.createAnalyser(); meterAn.fftSize = 2048;
+    if (liveSpectrum) noiseNode.connect(specAn);
+    noiseNode.connect(master);
+    master.connect(meterAn);
+    master.connect(actx.destination);
+    specBuf = new Float32Array(specAn.frequencyBinCount);
+    meterBuf = new Float32Array(meterAn.fftSize);
+  }
+  stopToken++;
+  await actx.resume();
+  master.gain.cancelScheduledValues(actx.currentTime);
+  master.gain.setTargetAtTime(dbToGain(state.volume), actx.currentTime, 0.15);
+  playing = true;
+  updatePlayButton();
+  armSleep();
+  startMonitors();
+}
+
+function stopAudio(fadeSeconds = 0.4) {
+  if (native) return stopNative(fadeSeconds);
+  if (!actx) return;
+  playing = false;
+  updatePlayButton();
+  clearSleep();
+  stopMonitors();
+  const token = ++stopToken;
+  master.gain.cancelScheduledValues(actx.currentTime);
+  master.gain.setTargetAtTime(0, actx.currentTime, fadeSeconds / 4);
+  setTimeout(() => { if (token === stopToken) actx.suspend(); }, fadeSeconds * 1000 + 100);
+}
+
+// Filter redesign is debounced: response time doesn't matter, and the design costs two large FFTs.
+let filterTimer = null;
+function pushAmp() {
+  if (native) return scheduleNativeRefresh();
+  if (!noiseNode || filterTimer) return;
+  filterTimer = setTimeout(() => {
+    filterTimer = null;
+    const f = designFilter(actx.sampleRate);
+    noiseNode.port.postMessage({ filter: f }, [f.re.buffer, f.im.buffer]);
+  }, 150);
+}
+
+function showEngine() {
+  const el = $('engine'), fallback = audioPath.startsWith('ScriptProcessor');
+  el.classList.toggle('warn', fallback);
+  el.textContent = fallback
+    ? 'Engine: main-thread fallback. This browser blocked the audio worklet for this file, so playback may click when the screen is off or the tab is busy.'
+    : 'Engine: audio worklet (dedicated audio thread).';
+}
+
+// Level meter and live spectrum run only while playing and visible, at low rates, to save battery.
+let liveSpectrum = false, meterTimer = null, specTimer = null;
+function startMonitors() {
+  stopMonitors();
+  if (native || !playing || document.hidden) return;   // no analysers in the native engine
+  meterTimer = setInterval(updateMeter, 250);
+  updateMeter();
+  if (liveSpectrum) specTimer = setInterval(() => requestAnimationFrame(draw), 100);
+}
+function stopMonitors() {
+  clearInterval(meterTimer); clearInterval(specTimer);
+  meterTimer = specTimer = null;
+  $('meterBar').style.width = '0%';
+  $('meterVal').textContent = '—';
+  requestDraw();
+}
+document.addEventListener('visibilitychange', () => document.hidden ? stopMonitors() : startMonitors());
+
+// ---------------------------------------------------------------------------
+// Sleep timer
+// ---------------------------------------------------------------------------
+let sleepEnd = 0, sleepTick = null;
+const sleepSel = document.getElementById('sleep');
+function armSleep() {
+  clearSleep();
+  const mins = +sleepSel.value;
+  if (native) LoopPlayer.setSleep({ seconds: playing && mins ? mins * 60 : 0 }).catch(() => {});   // the service owns the real timer
+  if (!mins || !playing) return;
+  sleepEnd = Date.now() + mins * 60000;
+  sleepTick = setInterval(() => {
+    const left = sleepEnd - Date.now();
+    if (left <= 0) { if (native) clearSleep(); else stopAudio(20); sleepSel.value = '0'; return; }
+    if (left <= 20000 && master) {
+      master.gain.setTargetAtTime(0, actx.currentTime, 4);
+    }
+    const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+    document.getElementById('sleepVal').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  }, 500);
+}
+function clearSleep() {
+  clearInterval(sleepTick);
+  sleepTick = null;
+  document.getElementById('sleepVal').textContent = '';
+}
+sleepSel.addEventListener('change', armSleep);
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const fmtF = (f) => f < 1000 ? `${Math.round(f)} Hz` : `${(f / 1000).toFixed(f < 10000 ? 2 : 1)} kHz`;
+const fmtDb = (d) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toFixed(1)} dB`;
+const logToSlider = (f, lo, hi) => Math.round(1000 * Math.log(f / lo) / Math.log(hi / lo));
+const sliderToLog = (v, lo, hi) => lo * Math.pow(hi / lo, v / 1000);
+let selected = -1;
+
+function changed(mut, { audio = true, keepPreset = false } = {}) {
+  mut(state);
+  splineCache = null;
+  if (audio && !keepPreset) state.preset = null;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  if (audio) pushAmp();
+  syncControls();
+  requestDraw();
+}
+
+// presets
+// A shape is everything that defines the spectrum; volume and stereo width are left alone.
+const shapeOf = (s) => structuredClone({ slope: s.slope, points: s.points, hp: s.hp, lp: s.lp });
+function applyShape(shape, key) {
+  selected = -1;
+  changed((s) => { Object.assign(s, structuredClone(shape)); s.preset = key; }, { keepPreset: true });
+}
+function chip(label, key, onclick) {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.dataset.key = key;
+  b.innerHTML = label;
+  b.onclick = onclick;
+  return b;
+}
+
+// Noise colors set only tilt and spline, keeping the current cuts.
+for (const p of PRESETS) {
+  $('presets').appendChild(chip(`<span class="sw" style="background:${p.color}"></span>${p.name}`, p.name, () => changed((s) => {
+    s.slope = p.slope;
+    s.points = p.points ? pts(p.points) : flatSpline();
+    s.preset = p.name;
+    selected = -1;
+  }, { keepPreset: true })));
+}
+for (const sc of SCENES) {
+  const key = 'scene:' + sc.name;
+  $('scenes').appendChild(chip(sc.name, key, () => applyShape({ ...sc, points: pts(sc.points) }, key)));
+}
+
+// Saved shapes
+const SHAPES_KEY = 'noise-shaper-shapes-v1';
+let savedShapes = [];
+try { savedShapes = JSON.parse(localStorage.getItem(SHAPES_KEY)) || []; } catch (e) {}
+const validShape = (x) => x && typeof x.name === 'string' && x.shape && typeof x.shape.slope === 'number' &&
+  Array.isArray(x.shape.points) && x.shape.points.length >= 2 && x.shape.hp && x.shape.lp;
+savedShapes = savedShapes.filter(validShape);
+
+function storeShapes() {
+  try { localStorage.setItem(SHAPES_KEY, JSON.stringify(savedShapes)); } catch (e) {}
+  renderSaved();
+}
+// Status line under the saved shapes, with an optional action link (used for Undo).
+let statusTimer = null;
+function showStatus(text, actionLabel, action) {
+  const el = $('savedStatus');
+  el.textContent = text;
+  if (actionLabel) {
+    const btn = document.createElement('button');
+    btn.textContent = actionLabel;
+    btn.onclick = () => { clearTimeout(statusTimer); el.textContent = ''; action(); };
+    el.appendChild(btn);
+  }
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { el.textContent = ''; }, actionLabel ? 10000 : 4000);
+}
+
+function deleteShape(item) {
+  const index = savedShapes.indexOf(item);
+  if (index < 0) return;
+  savedShapes.splice(index, 1);
+  const key = 'user:' + item.name;
+  const wasActive = state.preset === key;
+  if (wasActive) state.preset = null;
+  storeShapes();
+  showStatus(`Deleted “${item.name}”.`, 'Undo', () => {
+    if (savedShapes.some((x) => x.name === item.name)) return;
+    savedShapes.splice(Math.min(index, savedShapes.length), 0, item);
+    if (wasActive) state.preset = key;
+    storeShapes();
+  });
+}
+
+function renderSaved() {
+  const box = $('saved');
+  box.innerHTML = '';
+  for (const item of savedShapes) {
+    const key = 'user:' + item.name;
+    const wrap = document.createElement('span');
+    wrap.className = 'chip saved';
+    wrap.dataset.key = key;
+    const name = document.createElement('button');
+    name.className = 'name';
+    name.textContent = item.name;
+    name.title = 'Load this shape';
+    name.onclick = () => applyShape(item.shape, key);
+    const x = document.createElement('button');
+    x.className = 'x';
+    x.textContent = '×';
+    x.title = 'Delete';
+    x.setAttribute('aria-label', `Delete ${item.name}`);
+    x.onclick = () => deleteShape(item);
+    wrap.append(name, x);
+    box.appendChild(wrap);
+  }
+  $('savedEmpty').style.display = savedShapes.length ? 'none' : '';
+  syncControls();
+}
+
+$('saveForm').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('shapeName').value.trim();
+  if (!name) { $('shapeName').focus(); return; }
+  const existing = savedShapes.find((x) => x.name === name);
+  if (existing) {
+    const previous = existing.shape;
+    existing.shape = shapeOf(state);
+    showStatus(`Updated “${name}”.`, 'Undo', () => { existing.shape = previous; storeShapes(); });
+  } else {
+    savedShapes.push({ name, shape: shapeOf(state) });
+    showStatus(`Saved “${name}”.`);
+  }
+  state.preset = 'user:' + name;
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (err) {}
+  $('shapeName').value = '';
+  storeShapes();
+};
+
+$('exportShapes').onclick = () => {
+  const data = JSON.stringify({ app: 'noise-shaper', version: 1, shapes: savedShapes }, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  a.download = 'noise-shapes.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+$('importShapes').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const incoming = (Array.isArray(data) ? data : data.shapes || []).filter(validShape);
+    if (!incoming.length) throw new Error('no shapes found in that file');
+    for (const item of incoming) {
+      const i = savedShapes.findIndex((x) => x.name === item.name);
+      const clean = { name: item.name.slice(0, 40), shape: shapeOf(item.shape) };
+      if (i >= 0) savedShapes[i] = clean; else savedShapes.push(clean);
+    }
+    storeShapes();
+  } catch (err) {
+    alert('Could not import shapes: ' + err.message);
+  }
+};
+
+$('slope').oninput = (e) => changed((s) => { s.slope = +e.target.value; });
+
+const HP = [20 / 4, 500], LP = [200, 20000];
+$('hpF').oninput = (e) => changed((s) => { s.hp.f = sliderToLog(+e.target.value, ...HP); });
+$('lpF').oninput = (e) => changed((s) => { s.lp.f = sliderToLog(+e.target.value, ...LP); });
+$('lpOn').onchange = (e) => changed((s) => { s.lp.on = e.target.checked; });
+
+function buildSeg(el, key) {
+  for (const o of [1, 2, 3, 4]) {
+    const b = document.createElement('button');
+    b.textContent = `${o * 6}`;
+    b.title = `${o * 6} dB/octave`;
+    b.dataset.order = o;
+    b.onclick = () => changed((s) => { s[key].order = o; });
+    el.appendChild(b);
+  }
+}
+buildSeg($('hpOrder'), 'hp');
+buildSeg($('lpOrder'), 'lp');
+
+$('vol').oninput = (e) => {
+  changed((s) => { s.volume = +e.target.value; }, { audio: false });
+  if (master && playing) master.gain.setTargetAtTime(dbToGain(state.volume), actx.currentTime, 0.05);
+  if (native && playing) LoopPlayer.setGain({ gain: dbToGain(state.volume) }).catch(() => {});
+};
+$('width').oninput = (e) => {
+  changed((s) => { s.width = +e.target.value; }, { audio: false });
+  if (noiseNode) noiseNode.port.postMessage({ width: state.width });
+  scheduleNativeRefresh();
+};
+
+$('reset').onclick = () => {
+  const volume = state.volume;
+  selected = -1;
+  changed((s) => { Object.assign(s, structuredClone(DEFAULT_STATE), { volume }); }, { keepPreset: true });
+  if (noiseNode) noiseNode.port.postMessage({ width: state.width });
+};
+$('flatten').onclick = () => changed((s) => { s.points.forEach((p) => { p.g = 0; }); });
+
+function syncControls() {
+  $('slope').value = state.slope;
+  $('slopeVal').textContent = `${state.slope > 0 ? '+' : state.slope < 0 ? '−' : ''}${Math.abs(state.slope).toFixed(1)} dB/oct`;
+  document.querySelectorAll('.chip[data-key]').forEach((c) => c.classList.toggle('on', c.dataset.key === state.preset));
+  $('splineInfo').innerHTML = state.points.slice().sort((a, b) => a.f - b.f)
+    .map((p) => `<span class="${state.points.indexOf(p) === selected ? 'sel' : ''}">${fmtF(p.f)} ${p.g > 0 ? '+' : p.g < 0 ? '−' : '±'}${Math.abs(p.g).toFixed(1)}</span>`).join('');
+  $('hpF').value = logToSlider(state.hp.f, ...HP);
+  $('hpFVal').textContent = fmtF(state.hp.f);
+  $('lpF').value = logToSlider(state.lp.f, ...LP);
+  $('lpFVal').textContent = fmtF(state.lp.f);
+  $('lpOn').checked = state.lp.on;
+  $('lpF').disabled = !state.lp.on;
+  document.querySelectorAll('#hpOrder button').forEach((b) => b.classList.toggle('on', +b.dataset.order === state.hp.order));
+  document.querySelectorAll('#lpOrder button').forEach((b) => {
+    b.classList.toggle('on', +b.dataset.order === state.lp.order);
+    b.disabled = !state.lp.on;
+  });
+  $('vol').value = state.volume;
+  $('volVal').textContent = state.volume <= -60 ? 'muted' : fmtDb(state.volume);
+  $('width').value = state.width;
+  $('widthVal').textContent = state.width === 0 ? 'mono' : `${Math.round(state.width * 100)}%`;
+}
+
+function updatePlayButton() {
+  $('play').setAttribute('aria-pressed', playing);
+  $('playLabel').textContent = playing ? 'Stop' : 'Play';
+  $('playIcon').innerHTML = playing ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' : '<path d="M7 4.5v15l13-7.5z"/>';
+}
+$('play').onclick = () => playing ? stopAudio() : startAudio().catch((err) => {
+  alert('Could not start audio: ' + err.message);
+});
+
+// ---------------------------------------------------------------------------
+// Graph
+// ---------------------------------------------------------------------------
+const canvas = $('graph');
+const g2 = canvas.getContext('2d');
+let W = 0, Hh = 0, dpr = 1;
+const PAD = { l: 40, r: 12, t: 10, b: 24 };
+const xOf = (f) => PAD.l + (W - PAD.l - PAD.r) * Math.log(f / FMIN) / Math.log(FMAX / FMIN);
+const fOf = (x) => FMIN * Math.pow(FMAX / FMIN, (x - PAD.l) / (W - PAD.l - PAD.r));
+const yOf = (db) => PAD.t + (Hh - PAD.t - PAD.b) * (DBMAX - db) / (DBMAX - DBMIN);
+const dbOf = (y) => DBMAX - (y - PAD.t) * (DBMAX - DBMIN) / (Hh - PAD.t - PAD.b);
+const clampY = (y) => Math.max(PAD.t + 2, Math.min(Hh - PAD.b - 2, y));
+
+new ResizeObserver(() => {
+  dpr = window.devicePixelRatio || 1;
+  W = canvas.clientWidth; Hh = canvas.clientHeight;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(Hh * dpr);
+  requestDraw();
+}).observe(canvas);
+
+let drawPending = false;
+function requestDraw() {
+  if (drawPending) return;
+  drawPending = true;
+  requestAnimationFrame(() => { drawPending = false; draw(); });
+}
+
+
+function handles() {
+  const list = state.points.map((p, i) => ({ type: 'pt', i, x: xOf(p.f), y: clampY(yOf(totalDb(p.f))) }));
+  list.push({ type: 'hp', x: xOf(state.hp.f), y: clampY(yOf(totalDb(state.hp.f))) });
+  if (state.lp.on) list.push({ type: 'lp', x: xOf(state.lp.f), y: clampY(yOf(totalDb(state.lp.f))) });
+  return list;
+}
+
+let measOffset = null;
+function measuredPoints() {
+  if (!specAn || !playing || !liveSpectrum || !specTimer) return null;
+  specAn.getFloatFrequencyData(specBuf);
+  const sr = actx.sampleRate, binHz = sr / specAn.fftSize, pts = [];
+  let diffSum = 0, diffN = 0;
+  for (let x = PAD.l; x <= W - PAD.r; x += 3) {
+    const f0 = fOf(x - 1.5), f1 = fOf(x + 1.5), fc = fOf(x);
+    let k0 = Math.max(1, Math.round(f0 / binHz)), k1 = Math.min(specBuf.length - 1, Math.round(f1 / binHz));
+    if (k1 < k0) k1 = k0;
+    let p = 0;
+    for (let k = k0; k <= k1; k++) p += Math.pow(10, specBuf[k] / 10);
+    const db = 10 * Math.log10(p / (k1 - k0 + 1) + 1e-30);
+    pts.push([x, db]);
+    if (fc > 60 && fc < 8000) { diffSum += totalDb(fc) - db; diffN++; }
+  }
+  if (diffN) {
+    const d = diffSum / diffN;
+    measOffset = measOffset === null ? d : measOffset + 0.05 * (d - measOffset);
+  }
+  return pts;
+}
+
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+let colors = null;
+function themeColors() {
+  return colors || (colors = {
+    bg: css('--graph-bg'), grid: css('--grid'), strong: css('--grid-strong'), muted: css('--muted'),
+    accent: css('--accent'), measured: css('--measured'), panel: css('--panel'), ink: css('--ink'),
+  });
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { colors = null; requestDraw(); });
+
+function draw() {
+  if (!W) return;
+  const c = themeColors();
+  g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g2.fillStyle = c.bg;
+  g2.fillRect(0, 0, W, Hh);
+
+  // grid
+  g2.lineWidth = 1;
+  g2.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+  g2.textBaseline = 'top';
+  g2.textAlign = 'center';
+  for (const d of [10, 100, 1000, 10000]) {
+    for (let m = 1; m <= 9; m++) {
+      const f = d * m;
+      if (f < FMIN || f > FMAX) continue;
+      const x = Math.round(xOf(f)) + 0.5;
+      const major = m === 1;
+      g2.strokeStyle = major ? c.strong : c.grid;
+      g2.beginPath(); g2.moveTo(x, PAD.t); g2.lineTo(x, Hh - PAD.b); g2.stroke();
+      if (m === 1 || m === 2 || m === 5) {
+        g2.fillStyle = c.muted;
+        g2.fillText(f >= 1000 ? `${f / 1000}k` : `${f}`, x, Hh - PAD.b + 6);
+      }
+    }
+  }
+  g2.textAlign = 'right';
+  g2.textBaseline = 'middle';
+  for (let db = DBMIN; db <= DBMAX; db += 10) {
+    const y = Math.round(yOf(db)) + 0.5;
+    g2.strokeStyle = db === 0 ? c.strong : c.grid;
+    g2.beginPath(); g2.moveTo(PAD.l, y); g2.lineTo(W - PAD.r, y); g2.stroke();
+    if (db % 20 === 0) { g2.fillStyle = c.muted; g2.fillText(`${db > 0 ? '+' : ''}${db}`, PAD.l - 6, y); }
+  }
+
+  g2.save();
+  g2.beginPath();
+  g2.rect(PAD.l, PAD.t, W - PAD.l - PAD.r, Hh - PAD.t - PAD.b);
+  g2.clip();
+
+  // base slope
+  g2.setLineDash([4, 4]);
+  g2.strokeStyle = c.muted;
+  g2.globalAlpha = 0.6;
+  g2.beginPath();
+  g2.moveTo(PAD.l, yOf(tiltDb(FMIN)));
+  g2.lineTo(W - PAD.r, yOf(tiltDb(FMAX)));
+  g2.stroke();
+  g2.setLineDash([]);
+  g2.globalAlpha = 1;
+
+  // measured
+  const meas = measuredPoints();
+  if (meas && measOffset !== null) {
+    g2.strokeStyle = c.measured;
+    g2.lineWidth = 1.25;
+    g2.globalAlpha = 0.9;
+    g2.beginPath();
+    meas.forEach(([x, db], i) => { const y = yOf(db + measOffset); i ? g2.lineTo(x, y) : g2.moveTo(x, y); });
+    g2.stroke();
+    g2.globalAlpha = 1;
+  }
+
+  // target curve
+  const pts = [];
+  for (let x = PAD.l; x <= W - PAD.r + 1; x += 2) pts.push([x, yOf(totalDb(fOf(x)))]);
+  const grad = g2.createLinearGradient(0, PAD.t, 0, Hh - PAD.b);
+  grad.addColorStop(0, c.accent + '55');
+  grad.addColorStop(1, c.accent + '00');
+  g2.beginPath();
+  pts.forEach(([x, y], i) => i ? g2.lineTo(x, y) : g2.moveTo(x, y));
+  g2.lineTo(W - PAD.r, Hh - PAD.b);
+  g2.lineTo(PAD.l, Hh - PAD.b);
+  g2.closePath();
+  g2.fillStyle = grad;
+  g2.fill();
+  g2.beginPath();
+  pts.forEach(([x, y], i) => i ? g2.lineTo(x, y) : g2.moveTo(x, y));
+  g2.strokeStyle = c.accent;
+  g2.lineWidth = 2.25;
+  g2.stroke();
+
+  // spline offset on its own
+  g2.beginPath();
+  for (let x = PAD.l; x <= W - PAD.r; x += 2) {
+    const y = yOf(splineDb(fOf(x)));
+    x === PAD.l ? g2.moveTo(x, y) : g2.lineTo(x, y);
+  }
+  g2.strokeStyle = c.ink;
+  g2.globalAlpha = 0.35;
+  g2.lineWidth = 1.25;
+  g2.stroke();
+  g2.globalAlpha = 1;
+  g2.restore();
+
+  // handles
+  g2.textAlign = 'center';
+  g2.textBaseline = 'middle';
+  for (const h of handles()) {
+    if (h.type === 'pt') {
+      const active = h.i === selected || (hover && hover.type === 'pt' && hover.i === h.i);
+      g2.beginPath();
+      g2.arc(h.x, h.y, active ? 8 : 6.5, 0, Math.PI * 2);
+      g2.fillStyle = c.accent;
+      g2.fill();
+      g2.lineWidth = 2;
+      g2.strokeStyle = c.bg;
+      g2.stroke();
+      // faint marker on the spline-offset line
+      const sy = clampY(yOf(splineDb(state.points[h.i].f)));
+      g2.beginPath();
+      g2.arc(h.x, sy, 3, 0, Math.PI * 2);
+      g2.fillStyle = c.ink;
+      g2.globalAlpha = 0.45;
+      g2.fill();
+      g2.globalAlpha = 1;
+    } else {
+      g2.setLineDash([2, 3]);
+      g2.strokeStyle = c.muted;
+      g2.lineWidth = 1;
+      g2.beginPath(); g2.moveTo(h.x, PAD.t); g2.lineTo(h.x, Hh - PAD.b); g2.stroke();
+      g2.setLineDash([]);
+      const label = h.type === 'hp' ? 'LC' : 'HC';
+      g2.fillStyle = c.ink;
+      g2.beginPath();
+      g2.roundRect(h.x - 13, h.y - 9, 26, 18, 5);
+      g2.fill();
+      g2.fillStyle = c.bg;
+      g2.font = 'bold 9px ui-sans-serif, -apple-system, sans-serif';
+      g2.fillText(label, h.x, h.y + 0.5);
+    }
+  }
+}
+
+function updateMeter() {
+  meterAn.getFloatTimeDomainData(meterBuf);
+  let s = 0;
+  for (let i = 0; i < meterBuf.length; i++) s += meterBuf[i] * meterBuf[i];
+  const db = 10 * Math.log10(s / meterBuf.length + 1e-20);
+  $('meterBar').style.width = `${Math.max(0, Math.min(100, (db + 60) / 60 * 100))}%`;
+  $('meterVal').textContent = db < -90 ? '—' : `${db.toFixed(1)} dBFS`;
+}
+
+$('liveSpec').onchange = (e) => {
+  liveSpectrum = e.target.checked;
+  measOffset = null;
+  if (noiseNode && specAn) {
+    try { liveSpectrum ? noiseNode.connect(specAn) : noiseNode.disconnect(specAn); } catch (err) {}
+  }
+  startMonitors();
+};
+
+// ---------------------------------------------------------------------------
+// Graph interaction
+// ---------------------------------------------------------------------------
+let drag = null, hover = null;
+function hit(x, y) {
+  let best = null, bestD = 16;
+  for (const h of handles()) {
+    const d = Math.hypot(h.x - x, h.y - y) - (h.type === 'pt' ? 2 : 0);
+    if (d < bestD) { best = h; bestD = d; }
+  }
+  return best;
+}
+function localXY(e) {
+  const r = canvas.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  const [x, y] = localXY(e);
+  const h = hit(x, y);
+  if (!h) return;
+  canvas.setPointerCapture(e.pointerId);
+  if (h.type === 'pt') { selected = h.i; drag = { h, db0: dbOf(y), g0: state.points[h.i].g }; }
+  else drag = { h };
+  changed(() => {}, { audio: false });
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  const [x, y] = localXY(e);
+  const f = Math.max(FMIN, Math.min(FMAX, fOf(x)));
+  if (x >= PAD.l && x <= W - PAD.r && y >= PAD.t && y <= Hh - PAD.b) {
+    $('readout').textContent = `${fmtF(f)} · ${fmtDb(totalDb(f))}`;
+  }
+  if (drag) {
+    const { h } = drag;
+    if (h.type === 'pt') {
+      changed((s) => {
+        const p = s.points[h.i];
+        // keep points ordered: stay a little inside the neighbours
+        const others = s.points.filter((_, j) => j !== h.i).map((q) => q.f);
+        const lo = Math.max(15, ...others.filter((q) => q < p.f).map((q) => q * 1.06));
+        const hi = Math.min(20000, ...others.filter((q) => q > p.f).map((q) => q / 1.06));
+        p.f = Math.max(lo, Math.min(hi, f));
+        p.g = Math.max(-30, Math.min(30, Math.round((drag.g0 + dbOf(y) - drag.db0) * 10) / 10));
+      });
+    } else if (h.type === 'hp') {
+      changed((s) => { s.hp.f = Math.max(HP[0], Math.min(HP[1], f)); });
+    } else {
+      changed((s) => { s.lp.f = Math.max(LP[0], Math.min(LP[1], f)); });
+    }
+    return;
+  }
+  const h = hit(x, y);
+  if (h !== hover && (!h || !hover || h.type !== hover.type || h.i !== hover.i)) { hover = h; requestDraw(); }
+  canvas.style.cursor = h ? (h.type === 'pt' ? 'grab' : 'ew-resize') : 'crosshair';
+});
+
+canvas.addEventListener('pointerup', () => { drag = null; });
+canvas.addEventListener('pointerleave', () => { if (!drag) $('readout').textContent = ''; });
+
+canvas.addEventListener('dblclick', (e) => {
+  const [x, y] = localXY(e);
+  const h = hit(x, y);
+  if (h && h.type === 'pt') {
+    if (state.points.length > 2) { selected = -1; changed((s) => { s.points.splice(h.i, 1); }); }
+    return;
+  }
+  if (h || x < PAD.l || x > W - PAD.r || state.points.length >= 10) return;
+  const f = Math.max(15, Math.min(20000, fOf(x)));
+  if (state.points.some((p) => Math.abs(Math.log2(p.f / f)) < 0.1)) return;
+  // new point starts on the current spline so the curve doesn't jump
+  changed((s) => { s.points.push({ f, g: Math.round(splineDb(f) * 10) / 10 }); selected = s.points.length - 1; });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !/INPUT|SELECT|BUTTON/.test(document.activeElement.tagName)) {
+    e.preventDefault();
+    $('play').click();
+  }
+});
+
+renderSaved();
+requestDraw();
+
+if (native) {
+  engineNote(NATIVE_ENGINE_NOTE);
+  $('liveSpec').disabled = true;
+  $('liveSpec').parentElement.title = 'Not available in the Android app';
+  // Stop pressed in the notification, sleep timer done, audio focus lost, headphones unplugged...
+  LoopPlayer.addListener('stopped', () => { playing = false; updatePlayButton(); clearSleep(); });
+  // Ask for the notification permission now (Android 13+) so the playback notification can appear.
+  LoopPlayer.requestNotifications().catch(() => {});
+  // The service may still be playing from before the page was recreated.
+  LoopPlayer.isPlaying().then((r) => { if (r.playing) { playing = true; updatePlayButton(); } }).catch(() => {});
+}
+</script>
+</body>
+</html>

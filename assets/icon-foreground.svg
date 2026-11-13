@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <!-- Adaptive-icon foreground: keep everything inside the central 66x66 safe zone. -->
+  <g stroke="#d68c51" stroke-width="4.5" stroke-linecap="round" fill="none">
+    <path d="M26,43 V65"/>
+    <path d="M33,35 V73"/>
+    <path d="M40,39 V69"/>
+    <path d="M47,30 V78"/>
+    <path d="M54,34 V74"/>
+    <path d="M61,41 V67"/>
+    <path d="M68,37 V71"/>
+    <path d="M75,44 V64"/>
+    <path d="M82,48 V60"/>
+  </g>
+</svg>

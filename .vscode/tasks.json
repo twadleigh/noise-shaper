@@ -1,0 +1,36 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Android: add platform (once)",
+      "type": "npm",
+      "script": "add:android",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: sync web assets",
+      "type": "npm",
+      "script": "sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: build debug APK",
+      "type": "npm",
+      "script": "build:debug",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: build release bundle",
+      "type": "npm",
+      "script": "build:release",
+      "problemMatcher": []
+    },
+    {
+      "label": "Android: install debug APK on device",
+      "type": "npm",
+      "script": "install:debug",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+name: Android build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Installs the Android SDK command-line tools and accepts licenses
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Create Android project if not yet committed
+        run: '[ -d android ] || npx cap add android'
+
+      - name: Sync web assets and build debug APK
+        run: npm run build:debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
