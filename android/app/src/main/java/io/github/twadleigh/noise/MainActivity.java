@@ -1,4 +1,4 @@
-package com.example.noise;
+package io.github.twadleigh.noise;
 
 import com.getcapacitor.BridgeActivity;
 
