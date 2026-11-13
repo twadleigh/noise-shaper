@@ -22,8 +22,10 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      # Installs the Android SDK command-line tools and accepts licenses
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest ships the Android SDK (ANDROID_HOME). Just make sure licenses are accepted so
+      # Gradle can fetch any missing platform/build-tools. (`|| true`: `yes` gets SIGPIPE under pipefail.)
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - uses: gradle/actions/setup-gradle@v4
 
