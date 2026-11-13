@@ -1,4 +1,4 @@
-# Noise
+# Noise Shaper
 
 A single-file noise generator (`noise.html`) wrapped as an Android app with
 [Capacitor](https://capacitorjs.com/). `noise.html` is the source of truth for the UI;

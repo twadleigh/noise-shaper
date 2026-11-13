@@ -226,7 +226,7 @@ public class LoopPlayerService extends Service {
     private void createChannel() {
         if (Build.VERSION.SDK_INT < 26) return;
         // DEFAULT importance so the icon shows in the status bar; no sound or vibration.
-        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Noise playback", NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationChannel ch = new NotificationChannel(CHANNEL_ID, "Noise Shaper playback", NotificationManager.IMPORTANCE_DEFAULT);
         ch.setShowBadge(false);
         ch.setSound(null, null);
         ch.enableVibration(false);
@@ -242,7 +242,7 @@ public class LoopPlayerService extends Service {
 
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
         b.setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle("Noise")
+                .setContentTitle("Noise Shaper")
                 .setContentText("Playing — tap to open")
                 .setContentIntent(openPi)
                 .setOngoing(true)
