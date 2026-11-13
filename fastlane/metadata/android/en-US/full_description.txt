@@ -1,0 +1,9 @@
+Noise Shaper is a noise generator for sleep, focus and masking. Instead of a handful of fixed presets, you draw the spectrum: drag points on the frequency curve, set the overall tilt, add low-cut and high-cut filters, and adjust stereo width. Presets (white, pink, brown and more), soundscapes such as rain and wind, and your own saved shapes are one tap away.
+
+• Seamless: the noise is rendered as one long, exactly looping buffer, so there are no audible loops or gaps
+• Keeps playing with the screen off, using a foreground service with a notification and Stop button
+• Sleep timer with a gentle fade-out
+• Fully offline, no ads, no tracking, no accounts
+• Open source (MIT)
+
+The same app also runs in a web browser.

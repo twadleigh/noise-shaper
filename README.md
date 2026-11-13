@@ -108,12 +108,52 @@ an init script (e.g. `~/.gradle/init.d/mirror.gradle`) that rewrites any reposit
 then at `https://<user>.github.io/<repo>/`. (On a normal browser the page uses the Web Audio
 engine; the native looping player is only used inside the Android app.)
 
-### Signed release builds (not set up yet)
+## Releases (GitHub, IzzyOnDroid)
 
-Play Store uploads need a signed `.aab` (`npm run build:release`). To add this: create a
-keystore, add a signing config to `android/app/build.gradle`, and store the
-keystore (base64) and passwords as GitHub Actions secrets. Never commit `*.jks` or
-`*.keystore` files (they are git-ignored).
+The release APK is signed with one key we control and published on GitHub Releases.
+[IzzyOnDroid](https://apt.izzysoft.de/fdroid/) (an F-Droid-compatible repo) can serve those same
+APKs, so a GitHub download and an IzzyOnDroid install have the same signature and update each other.
+
+### GitHub Releases (signed APK)
+
+`.github/workflows/release.yml` builds a signed APK when you push a tag matching
+`versionName` in `android/app/build.gradle` (e.g. `v1.0.0`) and attaches it, with a SHA-256
+checksum file, to a GitHub Release.
+
+One-time setup:
+
+1. Create a release keystore **once** and back it up (password manager, plus a second copy
+   elsewhere). If you lose it you can never ship an update that installs over existing installs.
+   Never commit it (`*.jks` / `*.keystore` are git-ignored).
+
+   ```bash
+   keytool -genkeypair -v -keystore noise-shaper-release.jks -alias noise-shaper \
+     -keyalg RSA -keysize 4096 -validity 36500
+   ```
+
+2. Add four repository secrets (Settings → Secrets and variables → Actions):
+   `KEYSTORE_BASE64` (output of `base64 -i noise-shaper-release.jks`), `KEYSTORE_PASSWORD`,
+   `KEY_ALIAS` (`noise-shaper`), `KEY_PASSWORD`.
+
+To release: bump `versionCode`/`versionName` in `android/app/build.gradle`, add
+`fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, commit, then:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1
+```
+
+Local builds without the keystore environment variables produce an unsigned release APK.
+
+### IzzyOnDroid
+
+IzzyOnDroid doesn't build anything; it mirrors the signed APK from our GitHub release. It needs a
+public repo, an open source license (`LICENSE`, MIT), the APK attached to a release, and no
+trackers or non-free libraries. Store text and icon come from `fastlane/metadata/android/en-US/`.
+Once a first release exists, request inclusion with an "Request for packaging" issue in
+[IzzyOnDroid/repo](https://gitlab.com/IzzyOnDroid/repo) (see its README for the current process).
+
+Official F-Droid is also possible later, but F-Droid builds and signs its own APK, so its
+installs wouldn't be updatable from GitHub/IzzyOnDroid APKs.
 
 ## Known limitation
 

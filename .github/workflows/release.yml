@@ -1,0 +1,68 @@
+name: Release APK
+
+# Push a tag like v1.0.0 (must match versionName in android/app/build.gradle) to build a signed APK
+# and attach it to a GitHub Release. Needs repo secrets: KEYSTORE_BASE64, KEYSTORE_PASSWORD,
+# KEY_ALIAS, KEY_PASSWORD (see README).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches versionName
+        run: |
+          v=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match versionName v$v"; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          npm run sync
+          cd android && ./gradlew assembleRelease
+
+      - name: Verify signature
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          "$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner" verify --print-certs "$apk"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "noise-shaper-$GITHUB_REF_NAME.apk"
+          sha256sum noise-shaper-*.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" noise-shaper-*.apk SHA256SUMS.txt \
+            --title "$GITHUB_REF_NAME" --generate-notes
